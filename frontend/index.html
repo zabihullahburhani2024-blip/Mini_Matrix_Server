@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b0a09">
+  <title>Mini Matrix</title>
+  <link rel="icon" type="image/png" href="matrix_logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .menu-grid { display: grid; gap: 16px; margin-top: 32px; }
+    .menu-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px 20px; text-align: center;
+      cursor: pointer; transition: transform .15s, border-color .2s;
+      text-decoration: none; color: inherit; display: block;
+    }
+    .menu-card:active { transform: scale(0.98); }
+    .menu-card.primary { border-color: var(--gold); box-shadow: 0 0 28px var(--gold-glow); }
+    .menu-card.disabled { opacity: 0.55; cursor: not-allowed; }
+    .menu-card h2 { margin: 0 0 8px; font-size: 1.2rem; color: var(--gold); }
+    .menu-card p { margin: 0; color: var(--text-soft); font-size: 0.88rem; }
+    .badge-soon {
+      display: inline-block; margin-top: 12px; padding: 4px 12px;
+      border-radius: 999px; font-size: 0.75rem; background: rgba(240,113,120,.12); color: var(--red);
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <img class="brand-logo" src="matrix_logo.png" alt="Mini Matrix" width="44" height="44">
+        <div class="brand-text">
+          <h1>Mini Matrix</h1>
+          <p id="appSubtitle">پایش بازار طلا</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <select id="langSelect" class="lang-select">
+          <option value="fa">فارسی</option>
+          <option value="en">English</option>
+          <option value="ps">پښتو</option>
+        </select>
+        <button type="button" class="icon-btn" id="themeToggle">🌓</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top:24px;padding-bottom:40px">
+    <div class="menu-grid">
+      <a class="menu-card primary" href="register.html" id="cardWholesale">
+        <h2 id="menuWholesale">پاسه فروشان</h2>
+        <p id="menuWholesaleDesc">نرخ لحظه‌ای اونس و محاسبات بازار پاسه</p>
+      </a>
+      <a class="menu-card" href="jewelry.html" id="cardJewelry">
+        <h2 id="menuJewelry">طلای زیورات فروشان</h2>
+        <p id="menuJewelryDesc">خرید، فروش، مثقال و طلای خام</p>
+      </a>
+    </div>
+  </main>
+
+  <script src="js/i18n.js"></script>
+  <script>
+    (function () {
+      function apply() {
+        var lang = localStorage.getItem('mm_lang') || 'fa';
+        var d = MM_I18N[lang] || MM_I18N.fa;
+        document.documentElement.lang = d.lang;
+        document.documentElement.dir = d.dir;
+        document.body.dir = d.dir;
+        ['appSubtitle','menuWholesale','menuWholesaleDesc','menuJewelry','menuJewelryDesc','menuComingSoon'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el && d[id]) el.textContent = d[id];
+        });
+        var sel = document.getElementById('langSelect');
+        if (sel) sel.value = lang;
+      }
+      var theme = localStorage.getItem('mm_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      document.getElementById('themeToggle').onclick = function () {
+        var n = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', n);
+        localStorage.setItem('mm_theme', n);
+      };
+      document.getElementById('langSelect').onchange = function () {
+        localStorage.setItem('mm_lang', this.value);
+        apply();
+      };
+      apply();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0a09">
+  <title>Mini Matrix — زیورات</title>
+  <link rel="icon" type="image/png" href="matrix_logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .j-grid { display: grid; gap: 12px; }
+    @media (min-width: 640px) { .j-grid-2 { grid-template-columns: 1fr 1fr; } }
+    .j-result { background: var(--bg-secondary); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+    .j-result .row { display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; padding: 3px 0; }
+    .j-result .row strong { color: var(--gold); font-variant-numeric: tabular-nums; }
+    .j-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .j-tabs button {
+      background: var(--card); border: 1px solid var(--border); color: var(--text-soft);
+      border-radius: 10px; padding: 8px 14px; font-size: .82rem; font-weight: 600; cursor: pointer;
+    }
+    .j-tabs button.active { border-color: var(--gold); color: var(--gold); }
+    .live-bar {
+      display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+      padding: 12px 16px; margin-bottom: 14px;
+    }
+    .live-bar .item { font-size: .85rem; }
+    .live-bar .item span { color: var(--text-soft); }
+    .live-bar .item strong { color: var(--gold); font-variant-numeric: tabular-nums; margin-inline-start: 4px; }
+    .conn-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-inline-end: 4px; }
+    .conn-dot.on { background: #3dd68c; box-shadow: 0 0 8px #3dd68c88; }
+    .conn-dot.off { background: #f07178; }
+    .type-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
+    .type-toggle label {
+      flex: 1; text-align: center; padding: 8px; border-radius: 10px;
+      border: 1px solid var(--border); cursor: pointer; font-size: .85rem;
+    }
+    .type-toggle input { display: none; }
+    .type-toggle input:checked + span { color: var(--gold); font-weight: 700; }
+    .type-toggle label:has(input:checked) { border-color: var(--gold); background: rgba(212,175,55,.08); }
+    .err-msg { color: var(--red); font-size: .82rem; margin-top: 6px; }
+    .section-card { margin-bottom: 16px; }
+    .input-row { margin-bottom: 10px; }
+    .input-row label { display: block; font-size: .82rem; color: var(--text-soft); margin-bottom: 4px; }
+    .ghost-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--gold);
+      border-radius: 10px; padding: 6px 12px; font-size: .78rem; font-weight: 600; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <img class="brand-logo" src="matrix_logo.png" alt="Mini Matrix" width="44" height="44">
+        <div class="brand-text">
+          <h1>Mini Matrix</h1>
+          <p id="appSubtitle">طلای زیورات</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="index.html" class="ghost-btn" id="btnBack">منو</a>
+        <select id="langSelect" class="lang-select">
+          <option value="fa">فارسی</option>
+          <option value="en">English</option>
+          <option value="ps">پښتو</option>
+        </select>
+        <button type="button" class="icon-btn" id="themeToggle">🌓</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding-bottom: 40px">
+    <!-- Live market bar -->
+    <div class="card live-bar" id="liveBar">
+      <div class="item">
+        <span class="conn-dot off" id="connDot"></span>
+        <span id="connLabel">قطع</span>
+      </div>
+      <div class="item"><span>XAU/USD</span><strong id="liveOunce">—</strong></div>
+      <div class="item"><span>گرم ۲۳٫۸۸</span><strong id="liveGram">—</strong></div>
+      <div class="item">
+        <span>USD/AFN</span>
+        <input id="usdAfnRate" type="number" step="0.01" min="0" value="68" inputmode="decimal"
+               style="width:72px;margin-inline-start:6px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:4px 6px;color:var(--text);font-size:.9rem" dir="ltr">
+      </div>
+    </div>
+
+    <div class="j-tabs" id="jTabs">
+      <button type="button" class="active" data-panel="purchase">خرید طلا</button>
+      <button type="button" data-panel="sale">فروش طلا</button>
+      <button type="button" data-panel="mithqal">مثقال</button>
+      <button type="button" data-panel="barg">طلای خام / برگ</button>
+    </div>
+
+    <!-- PURCHASE -->
+    <section class="card section-card" id="panel-purchase">
+      <h2 class="section-title" style="margin-top:0">خرید طلا از مشتری</h2>
+      <div class="type-toggle">
+        <label><input type="radio" name="goldType" value="new" checked><span>طلای نو</span></label>
+        <label><input type="radio" name="goldType" value="used"><span>طلای کارکرده</span></label>
+      </div>
+      <div class="j-grid j-grid-2">
+        <div class="input-row">
+          <label for="pWeight">وزن اصلی (گرم)</label>
+          <div class="input-wrap" dir="ltr"><input id="pWeight" type="number" step="0.001" min="0" inputmode="decimal" placeholder="10"></div>
+        </div>
+        <div class="input-row">
+          <label for="pKarat">عیار اصلی</label>
+          <div class="input-wrap" dir="ltr"><input id="pKarat" type="number" step="0.01" min="0" max="24" inputmode="decimal" placeholder="18" value="18"></div>
+        </div>
+      </div>
+      <div class="input-row" id="deductRow" style="display:none">
+        <label for="pDeduct">کسر طلای کارکرده (%)</label>
+        <div class="input-wrap" dir="ltr"><input id="pDeduct" type="number" step="0.1" min="0" max="99" value="10" inputmode="decimal"></div>
+      </div>
+      <p class="price-note">عیار هدف (ثابت): <strong>۲۳٫۸۸</strong></p>
+      <div class="j-result" id="pResult">
+        <div class="row"><span>وزن معادل ۲۳٫۸۸</span><strong id="pEqWeight">—</strong></div>
+        <div class="row"><span>قیمت هر گرم ۲۳٫۸۸</span><strong id="pPpg">—</strong></div>
+        <div class="row"><span>ارزش ناخالص USD</span><strong id="pGross">—</strong></div>
+        <div class="row" id="pDeductRow" style="display:none"><span>کسر USD</span><strong id="pDeductUsd">—</strong></div>
+        <div class="row"><span>خالص USD</span><strong id="pNet">—</strong></div>
+        <div class="row"><span>مبلغ نهایی AFN</span><strong id="pAfn">—</strong></div>
+      </div>
+      <p class="err-msg" id="pError"></p>
+    </section>
+
+    <!-- SALE -->
+    <section class="card section-card" id="panel-sale" style="display:none">
+      <h2 class="section-title" style="margin-top:0">فروش طلا به مشتری</h2>
+      <div class="j-grid j-grid-2">
+        <div class="input-row">
+          <label for="sWeight">وزن (گرم)</label>
+          <div class="input-wrap" dir="ltr"><input id="sWeight" type="number" step="0.001" min="0" inputmode="decimal" placeholder="10"></div>
+        </div>
+        <div class="input-row">
+          <label for="sKarat">عیار</label>
+          <div class="input-wrap" dir="ltr"><input id="sKarat" type="number" step="0.01" min="0" max="24" inputmode="decimal" placeholder="18" value="18"></div>
+        </div>
+      </div>
+      <p class="price-note">عیار هدف (ثابت): <strong>۲۳٫۸۸</strong> — بدون کسر خودکار</p>
+      <div class="j-result" id="sResult">
+        <div class="row"><span>وزن معادل ۲۳٫۸۸</span><strong id="sEqWeight">—</strong></div>
+        <div class="row"><span>قیمت هر گرم ۲۳٫۸۸</span><strong id="sPpg">—</strong></div>
+        <div class="row"><span>ارزش فروش USD</span><strong id="sUsd">—</strong></div>
+        <div class="row"><span>مبلغ نهایی AFN</span><strong id="sAfn">—</strong></div>
+      </div>
+      <p class="err-msg" id="sError"></p>
+    </section>
+
+    <!-- MITHQAL -->
+    <section class="card section-card" id="panel-mithqal" style="display:none">
+      <h2 class="section-title" style="margin-top:0">مثقال</h2>
+      <p class="price-note">۱ مثقال = <strong>۴٫۵۸ گرم</strong> در عیار <strong>۲۳٫۸۸</strong></p>
+      <div class="j-result" id="mResult">
+        <div class="row"><span>قیمت هر گرم ۲۳٫۸۸</span><strong id="mPpg">—</strong></div>
+        <div class="row"><span>قیمت مثقال USD</span><strong id="mUsd">—</strong></div>
+        <div class="row"><span>قیمت مثقال AFN</span><strong id="mAfn">—</strong></div>
+      </div>
+    </section>
+
+    <!-- BARG / RAW -->
+    <section class="card section-card" id="panel-barg" style="display:none">
+      <h2 class="section-title" style="margin-top:0">طلای خام / برگ</h2>
+      <div class="input-row">
+        <label for="bWeight">وزن واحد (گرم)</label>
+        <div class="input-wrap" dir="ltr"><input id="bWeight" type="number" step="0.001" min="0" inputmode="decimal" placeholder="1" value="1"></div>
+      </div>
+      <div class="j-result" id="bResult">
+        <div class="row"><span>قیمت هر گرم ۲۳٫۸۸</span><strong id="bPpg">—</strong></div>
+        <div class="row"><span>قیمت واحد USD</span><strong id="bUsd">—</strong></div>
+        <div class="row"><span>قیمت واحد AFN</span><strong id="bAfn">—</strong></div>
+      </div>
+    </section>
+
+    <!-- Dev diagnostics (toggle with ?debug=1) -->
+    <section class="card" id="debugPanel" style="display:none;font-size:.8rem">
+      <h3 style="margin:0 0 8px">Diagnostics</h3>
+      <pre id="debugPre" style="margin:0;white-space:pre-wrap;color:var(--text-soft)"></pre>
+    </section>
+  </main>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/goldCalculations.js"></script>
+  <script src="js/ws-client.js"></script>
+  <script src="js/jewelry.js"></script>
+</body>
+</html>
