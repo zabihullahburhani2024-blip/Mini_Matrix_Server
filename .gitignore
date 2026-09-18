@@ -1,0 +1,9 @@
+# secrets & runtime
+backend/.env
+backend/data/minimatrix.db
+backend/data/minimatrix.db-*
+backend/venv/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/

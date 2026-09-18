@@ -1,173 +1,151 @@
 /**
- * Mini Matrix — registration & user store (client-side, no server)
- * Users saved in localStorage only on this device/browser.
+ * Mini Matrix — registration & auth (server-side)
+ * All sensitive data lives on the backend. Browser only keeps session token.
  */
 (function (global) {
   'use strict';
 
-  var USERS_KEY = 'mm_users_v1';
   var SESSION_KEY = 'mm_session_v1';
+  var TOKEN_KEY = 'mm_token_v1';
 
-  function loadUsers() {
-    try { return JSON.parse(localStorage.getItem(USERS_KEY) || '[]'); }
-    catch (e) { return []; }
-  }
-  function saveUsers(list) {
-    localStorage.setItem(USERS_KEY, JSON.stringify(list));
-  }
-
-  function hash(str) {
-    var h = 0;
-    for (var i = 0; i < str.length; i++) {
-      h = ((h << 5) - h) + str.charCodeAt(i);
-      h |= 0;
+  function apiBase() {
+    if (global.MM_API_BASE) return String(global.MM_API_BASE).replace(/\/$/, '');
+    if (location.port === '5500' || location.port === '3000' || location.protocol === 'file:') {
+      return 'http://' + (location.hostname || '127.0.0.1') + ':8000';
     }
-    return String(h);
+    return '';
+  }
+
+  function api(path, opts) {
+    var url = apiBase() + path;
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, (opts && opts.headers) || {});
+    var token = localStorage.getItem(TOKEN_KEY);
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return fetch(url, Object.assign({}, opts, {
+      headers: headers,
+      body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
+    })).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          var err = (data && data.detail) || 'error';
+          if (typeof err === 'object') err = JSON.stringify(err);
+          return { ok: false, error: err, status: res.status };
+        }
+        return Object.assign({ ok: true }, data);
+      }).catch(function () {
+        return { ok: false, error: 'network', status: res.status };
+      });
+    }).catch(function () {
+      return { ok: false, error: 'network' };
+    });
   }
 
   function normalizePhone(phone) {
     return String(phone || '').replace(/\D/g, '');
   }
 
-  function findUser(phone) {
-    var p = normalizePhone(phone);
-    return loadUsers().find(function (u) { return u.phone === p; }) || null;
-  }
-
-  function register(data) {
-    var phone = normalizePhone(data.phone);
-    var name = (data.name || '').trim();
-    var password = data.password || '';
-    var recovery = (data.recovery || '').trim();
-
-    if (!name || phone.length < 8 || password.length < 4) {
-      return { ok: false, error: 'invalid_input' };
-    }
-    if (findUser(phone)) {
-      return { ok: false, error: 'exists' };
-    }
-
-    var users = loadUsers();
-    users.push({
-      id: 'u_' + Date.now(),
-      name: name,
-      phone: phone,
-      passHash: hash(password),
-      recovery: recovery,
-      activated: false,
-      activatedAt: null,
-      expiresAt: null,
-      activationCode: null,
-      createdAt: Date.now(),
-    });
-    saveUsers(users);
-    return { ok: true, phone: phone, name: name };
-  }
-
-  function login(phone, password) {
-    var user = findUser(phone);
-    if (!user) return { ok: false, error: 'not_found' };
-    if (user.passHash !== hash(password)) return { ok: false, error: 'bad_password' };
-
-    if (user.activated && user.expiresAt && global.MM_ACTIVATION &&
-        MM_ACTIVATION.isExpired(user.expiresAt)) {
-      user.activated = false;
-      var users = loadUsers();
-      var idx = users.findIndex(function (u) { return u.phone === user.phone; });
-      if (idx >= 0) {
-        users[idx].activated = false;
-        saveUsers(users);
-      }
-    }
-
+  function saveSession(user, token) {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       phone: user.phone,
       name: user.name,
       activated: !!user.activated,
-      expiresAt: user.expiresAt || null,
+      expiresAt: user.expires_at || null,
       at: Date.now(),
     }));
-    return { ok: true, user: user };
+  }
+
+  function register(data) {
+    return api('/api/auth/register', {
+      method: 'POST',
+      body: {
+        name: (data.name || '').trim(),
+        phone: data.phone,
+        password: data.password || '',
+        recovery: (data.recovery || '').trim(),
+      },
+    }).then(function (res) {
+      if (!res.ok) return res;
+      return { ok: true, phone: res.phone, name: res.name };
+    });
+  }
+
+  function login(phone, password) {
+    return api('/api/auth/login', {
+      method: 'POST',
+      body: { phone: phone, password: password },
+    }).then(function (res) {
+      if (!res.ok) return res;
+      saveSession(res.user, res.token);
+      return { ok: true, user: res.user };
+    });
   }
 
   function activateWithCode(phone, code) {
-    if (!global.MM_ACTIVATION) return { ok: false, error: 'no_module' };
-    var p = normalizePhone(phone);
-    var users = loadUsers();
-    var idx = users.findIndex(function (u) { return u.phone === p; });
-    if (idx < 0) return { ok: false, error: 'not_found' };
-
-    var match = MM_ACTIVATION.matchAndConsume(code, p);
-    if (!match.ok) return match;
-
-    users[idx].activated = true;
-    users[idx].activatedAt = Date.now();
-    users[idx].expiresAt = match.expiresAt;
-    users[idx].activationCode = String(code).trim().toLowerCase();
-    saveUsers(users);
-
-    localStorage.setItem(SESSION_KEY, JSON.stringify({
-      phone: p,
-      name: users[idx].name,
-      activated: true,
-      expiresAt: match.expiresAt,
-      at: Date.now(),
-    }));
-    return { ok: true, expiresAt: match.expiresAt, days: match.days };
+    return api('/api/auth/activate', {
+      method: 'POST',
+      body: { phone: phone, code: code },
+    }).then(function (res) {
+      if (!res.ok) return res;
+      if (res.user) saveSession(res.user, res.token);
+      return {
+        ok: true,
+        expiresAt: res.expires_at,
+        days: res.days,
+      };
+    });
   }
 
   function resetPassword(phone, recovery, newPassword) {
-    var users = loadUsers();
-    var p = normalizePhone(phone);
-    var idx = users.findIndex(function (u) { return u.phone === p; });
-    if (idx < 0) return { ok: false, error: 'not_found' };
-    if (!users[idx].recovery || users[idx].recovery !== recovery) {
-      return { ok: false, error: 'bad_recovery' };
-    }
-    if (!newPassword || newPassword.length < 4) return { ok: false, error: 'weak_password' };
-    users[idx].passHash = hash(newPassword);
-    saveUsers(users);
-    return { ok: true };
+    return api('/api/auth/reset-password', {
+      method: 'POST',
+      body: {
+        phone: phone,
+        recovery: recovery,
+        new_password: newPassword,
+      },
+    });
   }
 
   function getSession() {
     try {
       var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
       if (!s || !s.phone) return null;
-      var u = findUser(s.phone);
-      if (!u) return null;
-      if (u.activated && u.expiresAt && global.MM_ACTIVATION &&
-          MM_ACTIVATION.isExpired(u.expiresAt)) {
-        u.activated = false;
-        var users = loadUsers();
-        var idx = users.findIndex(function (x) { return x.phone === u.phone; });
-        if (idx >= 0) {
-          users[idx].activated = false;
-          saveUsers(users);
-        }
+      if (s.activated && s.expiresAt && Date.now() > s.expiresAt) {
+        s.activated = false;
+        localStorage.setItem(SESSION_KEY, JSON.stringify(s));
       }
-      s.activated = !!u.activated;
-      s.expiresAt = u.expiresAt || null;
-      s.name = u.name;
-      localStorage.setItem(SESSION_KEY, JSON.stringify(s));
       return s;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function refreshMe() {
+    return api('/api/auth/me', { method: 'GET' }).then(function (res) {
+      if (!res.ok || !res.user) {
+        logout();
+        return null;
+      }
+      saveSession(res.user, localStorage.getItem(TOKEN_KEY));
+      return getSession();
+    });
   }
 
   function logout() {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   }
 
   function isActive(session) {
     if (!session || !session.activated) return false;
-    if (session.expiresAt && global.MM_ACTIVATION &&
-        MM_ACTIVATION.isExpired(session.expiresAt)) return false;
+    if (session.expiresAt && Date.now() > session.expiresAt) return false;
     return true;
   }
 
   function remainingDays(session) {
-    if (!session || !session.expiresAt || !global.MM_ACTIVATION) return 0;
-    return MM_ACTIVATION.remainingDays(session.expiresAt);
+    if (!session || !session.expiresAt) return 0;
+    return Math.max(0, Math.ceil((session.expiresAt - Date.now()) / 86400000));
   }
 
   function whatsappRequestLink(phone, name) {
@@ -180,13 +158,21 @@
     return 'https://wa.me/?text=' + text;
   }
 
-  // Public API (compatible with previous MM_AUTH name)
+  function findUser(phone) {
+    var s = getSession();
+    if (s && normalizePhone(s.phone) === normalizePhone(phone)) {
+      return { phone: s.phone, name: s.name, activated: s.activated, expiresAt: s.expiresAt };
+    }
+    return null;
+  }
+
   global.MM_REGISTER = {
     register: register,
     login: login,
     activateWithCode: activateWithCode,
     resetPassword: resetPassword,
     getSession: getSession,
+    refreshMe: refreshMe,
     logout: logout,
     isActive: isActive,
     remainingDays: remainingDays,
@@ -195,14 +181,14 @@
     normalizePhone: normalizePhone,
   };
 
-  // Back-compat alias used by app.js / register.html
   global.MM_AUTH = {
-    ACTIVATION_DAYS: (global.MM_ACTIVATION && MM_ACTIVATION.ACTIVATION_DAYS) || 365,
+    ACTIVATION_DAYS: 365,
     register: register,
     login: login,
     activate: activateWithCode,
     resetPassword: resetPassword,
     getSession: getSession,
+    refreshMe: refreshMe,
     logout: logout,
     requireLogin: function () { return !!getSession(); },
     requireActivated: function () { return isActive(getSession()); },
@@ -212,7 +198,7 @@
     whatsappRequestLink: whatsappRequestLink,
     normalizePhone: normalizePhone,
     stats: function () {
-      return global.MM_ACTIVATION ? MM_ACTIVATION.stats() : { total: 0, used: 0, free: 0 };
+      return { total: 0, used: 0, free: 0 };
     },
   };
 })(window);

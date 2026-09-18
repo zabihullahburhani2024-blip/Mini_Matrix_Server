@@ -10,6 +10,7 @@ Endpoints:
   GET  /api/status       Current market + connection stats
   GET  /api/price        Latest price snapshot (REST fallback)
   WS   /ws               Live market stream for clients
+  POST /api/auth/*       Register, login, activate, reset-password
 """
 from __future__ import annotations
 
@@ -24,6 +25,8 @@ from fastapi.responses import JSONResponse
 
 from config import get_settings
 from market_data import market_service
+import database as db
+from auth import router as auth_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +40,8 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     if not settings.twelve_data_api_key:
         logger.error("TWELVE_DATA_API_KEY is empty — set it in .env")
+    db.init_db()
+    logger.info("Database ready")
     await market_service.start()
     logger.info("Backend ready — max clients=%d", settings.max_clients)
     yield
@@ -46,8 +51,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Mini Matrix Backend",
-    version="1.0.0",
-    description="Live XAU/USD distribution for Mini Matrix gold calculator",
+    version="1.1.0",
+    description="Live XAU/USD + secure auth for Mini Matrix gold calculator",
     lifespan=lifespan,
 )
 
@@ -59,6 +64,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
 
 
 @app.get("/")

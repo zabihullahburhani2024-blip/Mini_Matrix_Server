@@ -113,7 +113,7 @@
     </div>
   </div>
 
-  <script src="js/codes.js"></script>
+  
   <script src="js/i18n.js"></script>
   <script src="js/activation.js"></script>
   <script src="js/register.js"></script>
@@ -182,46 +182,52 @@
     }
 
     document.getElementById('btnRegister').onclick = function () {
-      var res = MM_AUTH.register({
+      var msg = document.getElementById('msgRegister');
+      msg.className = 'msg';
+      msg.textContent = '...';
+      MM_AUTH.register({
         name: document.getElementById('regName').value,
         phone: document.getElementById('regPhone').value,
         password: document.getElementById('regPass').value,
         recovery: document.getElementById('regRecovery').value,
+      }).then(function (res) {
+        if (!res.ok) {
+          msg.className = 'msg err';
+          msg.textContent = res.error === 'exists' ? t('regExists') : t('regInvalid');
+          return;
+        }
+        msg.className = 'msg ok';
+        msg.textContent = t('regOkGoLogin');
+        setTimeout(function () {
+          showPanel('login');
+          document.getElementById('loginPhone').value = res.phone;
+        }, 800);
       });
-      var msg = document.getElementById('msgRegister');
-      if (!res.ok) {
-        msg.className = 'msg err';
-        msg.textContent = res.error === 'exists' ? t('regExists') : t('regInvalid');
-        return;
-      }
-      msg.className = 'msg ok';
-      msg.textContent = t('regOkGoLogin');
-      setTimeout(function () {
-        showPanel('login');
-        document.getElementById('loginPhone').value = res.phone;
-      }, 800);
     };
 
     document.getElementById('btnLogin').onclick = function () {
-      var res = MM_AUTH.login(
+      var msg = document.getElementById('msgLogin');
+      msg.className = 'msg';
+      msg.textContent = '...';
+      MM_AUTH.login(
         document.getElementById('loginPhone').value,
         document.getElementById('loginPass').value
-      );
-      var msg = document.getElementById('msgLogin');
-      if (!res.ok) {
-        msg.className = 'msg err';
-        msg.textContent = t('loginFail');
-        return;
-      }
-      if (MM_AUTH.isActive(res.user)) {
-        location.href = 'app.html';
-      } else {
-        msg.className = 'msg ok';
-        msg.textContent = t('needActivate');
-        var wa = document.getElementById('btnRequestCode');
-        if (wa) wa.href = MM_AUTH.whatsappRequestLink(res.user.phone, res.user.name);
-        showPanel('activate');
-      }
+      ).then(function (res) {
+        if (!res.ok) {
+          msg.className = 'msg err';
+          msg.textContent = t('loginFail');
+          return;
+        }
+        if (MM_AUTH.isActive(res.user)) {
+          location.href = 'app.html';
+        } else {
+          msg.className = 'msg ok';
+          msg.textContent = t('needActivate');
+          var wa = document.getElementById('btnRequestCode');
+          if (wa) wa.href = MM_AUTH.whatsappRequestLink(res.user.phone, res.user.name);
+          showPanel('activate');
+        }
+      });
     };
 
     document.getElementById('btnActivate').onclick = function () {
@@ -232,34 +238,40 @@
         showPanel('login');
         return;
       }
-      var res = MM_AUTH.activate(sess.phone, document.getElementById('actCode').value);
       var msg = document.getElementById('msgActivate');
-      if (!res.ok) {
-        msg.className = 'msg err';
-        if (res.error === 'already_used') msg.textContent = t('codeUsed');
-        else if (res.error === 'not_in_pool') msg.textContent = t('codeInvalid');
-        else msg.textContent = t('activateFail');
-        return;
-      }
-      msg.className = 'msg ok';
-      msg.textContent = t('activateOk');
-      setTimeout(function () { location.href = 'app.html'; }, 700);
+      msg.className = 'msg';
+      msg.textContent = '...';
+      MM_AUTH.activate(sess.phone, document.getElementById('actCode').value).then(function (res) {
+        if (!res.ok) {
+          msg.className = 'msg err';
+          if (res.error === 'already_used') msg.textContent = t('codeUsed');
+          else if (res.error === 'not_in_pool') msg.textContent = t('codeInvalid');
+          else msg.textContent = t('activateFail');
+          return;
+        }
+        msg.className = 'msg ok';
+        msg.textContent = t('activateOk');
+        setTimeout(function () { location.href = 'app.html'; }, 700);
+      });
     };
 
     document.getElementById('btnReset').onclick = function () {
-      var res = MM_AUTH.resetPassword(
+      var msg = document.getElementById('msgForgot');
+      msg.className = 'msg';
+      msg.textContent = '...';
+      MM_AUTH.resetPassword(
         document.getElementById('forgotPhone').value,
         document.getElementById('forgotRecovery').value,
         document.getElementById('forgotNewPass').value
-      );
-      var msg = document.getElementById('msgForgot');
-      if (!res.ok) {
-        msg.className = 'msg err';
-        msg.textContent = t('resetFail');
-        return;
-      }
-      msg.className = 'msg ok';
-      msg.textContent = t('resetOk');
+      ).then(function (res) {
+        if (!res.ok) {
+          msg.className = 'msg err';
+          msg.textContent = t('resetFail');
+          return;
+        }
+        msg.className = 'msg ok';
+        msg.textContent = t('resetOk');
+      });
     };
 
     var theme = localStorage.getItem('mm_theme') || 'dark';
