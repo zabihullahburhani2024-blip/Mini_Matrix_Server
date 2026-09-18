@@ -121,17 +121,6 @@
     }
   }
 
-  function refreshMe() {
-    return api('/api/auth/me', { method: 'GET' }).then(function (res) {
-      if (!res.ok || !res.user) {
-        logout();
-        return null;
-      }
-      saveSession(res.user, localStorage.getItem(TOKEN_KEY));
-      return getSession();
-    });
-  }
-
   function logout() {
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(TOKEN_KEY);
@@ -172,7 +161,6 @@
     activateWithCode: activateWithCode,
     resetPassword: resetPassword,
     getSession: getSession,
-    refreshMe: refreshMe,
     logout: logout,
     isActive: isActive,
     remainingDays: remainingDays,
@@ -188,7 +176,6 @@
     activate: activateWithCode,
     resetPassword: resetPassword,
     getSession: getSession,
-    refreshMe: refreshMe,
     logout: logout,
     requireLogin: function () { return !!getSession(); },
     requireActivated: function () { return isActive(getSession()); },
