@@ -1,4 +1,4 @@
-/**
+/** app.js — main frontend logic for Mini Matrix wholesale app
  * Mini Matrix — wholesale app (auth-gated, live chart, Twelve Data 8/min)
  */
 (function () {
